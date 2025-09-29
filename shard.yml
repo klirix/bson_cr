@@ -1,0 +1,14 @@
+name: bson_cr
+version: 0.1.0
+
+authors:
+  - Askhat Saiapov <askhat.saiapov@gmail.com>
+
+crystal: ">= 1.15.1"
+
+license: MIT
+
+dependencies:
+  bson:
+    github: elbywan/bson.cr
+    version: 0.3.6
