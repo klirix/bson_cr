@@ -2,11 +2,20 @@ require "./spec_helper"
 require "json"
 
 describe BSONCr do
-  # TODO: Write tests
-
   it "works" do
-    BSONCr.encode({"name" => "John", "age" => 30, "city" => "New York"})
-    BSONCr.decode
+    base = {
+      "name" => "John",
+      "age" => 30, "array" => [1, 2, 3],
+      "nested" => {"key" => "value"},
+      "uuid" => UUID.v7,
+      "object_id" => BSONCr::ObjectId.create,
+    }
+    doc = BSONCr.encode(base)
+
+    doc.size.should eq base.size
+
+    pp doc.to_h
+    doc.to_h.should eq(base)
   end
 
   it "acts like json" do
