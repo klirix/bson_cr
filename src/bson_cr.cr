@@ -294,7 +294,7 @@ module BSONCr
       end
     end
 
-    def []=(key : String, value : Any::Value)
+    def []=(key : String, value : Any::Value | Any::Type)
       io = IO::Memory.new
       encoder = Encoder.new(io)
       io.write_bytes(0_i32, IO::ByteFormat::LittleEndian) # Placeholder for document size
