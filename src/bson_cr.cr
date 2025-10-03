@@ -109,7 +109,7 @@ module BSONCr
       io.write(v.bytes.to_slice) # Assuming v is of type ObjectId
     end
 
-    def write_value(k : String, type : Time)
+    def write_value(k : String, v : Time)
       io.write_byte(TypeByte::DateTime.value)
       io.write_string(k.to_slice)
       io.write_byte(0) # null terminator for key
@@ -135,6 +135,20 @@ module BSONCr
       io.write_string(k.to_slice)
       io.write_byte(0) # null terminator for key
       encode(value, io.pos.to_u!)
+    end
+
+    def write_value(k : String, value : Document)
+      io.write_byte(TypeByte::Document.value)
+      io.write_string(k.to_slice)
+      io.write_byte(0) # null terminator for key
+      io.write(value.bytes.to_slice)
+    end
+
+    def write_value(k : String, value : DocumentArray)
+      io.write_byte(TypeByte::Array.value)
+      io.write_string(k.to_slice)
+      io.write_byte(0) # null terminator for key
+      io.write(value.bytes.to_slice)
     end
 
     def write_value(k : String, value : Int32)
@@ -172,6 +186,15 @@ module BSONCr
     property bytes : Bytes
 
     def initialize(@bytes)
+    end
+
+    def empty?
+      bytes.size == 5 # 4 bytes for size + 1 byte for null terminator
+    end
+
+    def initialize
+      @bytes = Bytes.new(5) # 4 bytes for size + 1 byte for null terminator
+      @bytes.to_unsafe.as(Pointer(Int32)).value = 5
     end
 
     def read_value(io, type_byte)
@@ -230,30 +253,26 @@ module BSONCr
     end
 
     def skip_value(io, type_byte)
-      case type_byte
-      when TypeByte::Double.value
+      case TypeByte.new(type_byte)
+      when TypeByte::Double, TypeByte::Timestamp, TypeByte::Int64, TypeByte::DateTime
         io.pos += 8
-      when TypeByte::String.value
+      when TypeByte::String
         v_size = io.read_bytes(Int32, IO::ByteFormat::LittleEndian)
         io.pos += v_size
-      when TypeByte::Document.value, TypeByte::Array.value
+      when TypeByte::Document, TypeByte::Array
         v_size = io.read_bytes(Int32, IO::ByteFormat::LittleEndian)
         io.pos += (v_size - 4) # already read size
-      when TypeByte::Binary.value
+      when TypeByte::Binary
         v_size = io.read_bytes(Int32, IO::ByteFormat::LittleEndian)
         io.pos += (v_size + 1) # +1 for subtype byte
-      when TypeByte::ObjectId.value
+      when TypeByte::ObjectId
         io.pos += ObjectId::BYTES_SIZE
-      when TypeByte::Boolean.value
+      when TypeByte::Boolean
         io.pos += 1
-      when TypeByte::DateTime.value
-        io.pos += 8
-      when TypeByte::NullValue.value
+      when TypeByte::NullValue
         # nothing to skip
-      when TypeByte::Int32.value
+      when TypeByte::Int32
         io.pos += 4
-      when TypeByte::Int64.value
-        io.pos += 8
       else
         raise "Unsupported type byte: #{type_byte}"
       end
@@ -273,6 +292,51 @@ module BSONCr
       each_pair do |k, v|
         return v if k == key
       end
+    end
+
+    def []=(key : String, value : Any::Value)
+      io = IO::Memory.new
+      encoder = Encoder.new(io)
+      io.write_bytes(0_i32, IO::ByteFormat::LittleEndian) # Placeholder for document size
+      found_value : Any::Value? = nil
+      each_pair do |k, v|
+        encoder.write_value(k, v) if k != key
+      end
+      encoder.write_value(key, value)
+      io.write_byte(0) # null terminator for document
+      len = io.pos - 1
+      io.pos = 0
+      io.write_bytes(len.to_i32, IO::ByteFormat::LittleEndian)
+      @bytes = io.to_slice
+    end
+
+    def delete(key : String) : Any::Value?
+      delete(key) { nil }
+    end
+
+    def delete(key : Int) : Any::Value?
+      delete(key) { nil }
+    end
+
+    def delete(key : String, &)
+      io = IO::Memory.new
+      encoder = Encoder.new(io)
+      io.write_bytes(0_i32, IO::ByteFormat::LittleEndian) # Placeholder for document size
+      found_value : Any::Value? = nil
+      each_pair do |k, v|
+        if k != key
+          encoder.write_value(k, v)
+        else
+          found_value = v
+        end
+      end
+      io.write_byte(0) # null terminator for document
+      len = io.pos - 1
+      io.pos = 0
+      io.write_bytes(len.to_i32, IO::ByteFormat::LittleEndian)
+      @bytes = io.to_slice
+
+      found_value
     end
 
     def each_pair(& : {String, Any::Value} ->)
@@ -306,7 +370,6 @@ module BSONCr
         skip_value(io, type_byte)
         n += 1
       end
-
       n
     end
   end

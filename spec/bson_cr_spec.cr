@@ -18,11 +18,50 @@ describe BSONCr do
     doc.to_h.should eq(base)
   end
 
-  it "acts like json" do
-    record = {"name" => "John", "age" => 30, "city" => "New York"}
+  describe "#delete" do
+    it "deletes key and returns value" do
+      doc = BSONCr.encode({"name" => "John", "age" => 30, "city" => "New York"})
 
-    JSON.parse(record.to_json) # should eq(record)
-    # bytes = Bytes.new
+      doc.delete("age").should eq 30
+      doc.size.should eq 2
+
+      # bytes = Bytes.new
+    end
+
+    it "deletes non-existing key and returns nil" do
+      doc = BSONCr.encode({"name" => "John", "age" => 30, "city" => "New York"})
+
+      doc.delete("country").should be_nil
+      doc.size.should eq 3
+    end
+  end
+
+  describe "#[]=, #[]" do
+    it "sets and gets value by key" do
+      doc = BSONCr.encode({"name" => "John", "age" => 30})
+
+      doc["city"] = "New York"
+      doc.size.should eq 3
+      doc["city"].should eq "New York"
+
+      doc["age"] = 31
+      doc.size.should eq 3
+      doc["age"].should eq 31
+    end
+  end
+
+  describe "#empty?" do
+    it "returns true for empty document" do
+      doc = BSONCr::Document.new
+
+      doc.empty?.should be_true
+    end
+
+    it "returns false for non-empty document" do
+      doc = BSONCr::Document{"name" => "John"}
+
+      doc.empty?.should be_false
+    end
   end
 
   describe BSONCr::ObjectId do
