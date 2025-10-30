@@ -18,6 +18,20 @@ describe BSONCr do
     doc.to_h.should eq(base)
   end
 
+  it "encodes size correctly" do
+    base = {"query" => {} of String => String}
+    doc = BSONCr.encode(base)
+
+    doc.bytes.size.should eq 17
+
+    doc.bytes.to_unsafe.unsafe_as(Pointer(Int32)).value.should eq 17
+
+    doc2 = BSONCr::Document{"query" => BSONCr::Document.new}
+
+    doc2.bytes.size.should eq 17
+    doc2.bytes.to_unsafe.unsafe_as(Pointer(Int32)).value.should eq 17
+  end
+
   describe "#delete" do
     it "deletes key and returns value" do
       doc = BSONCr.encode({"name" => "John", "age" => 30, "city" => "New York"})

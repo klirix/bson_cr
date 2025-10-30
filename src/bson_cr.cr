@@ -304,7 +304,7 @@ module BSONCr
       end
       encoder.write_value(key, value)
       io.write_byte(0) # null terminator for document
-      len = io.pos - 1
+      len = io.pos
       io.pos = 0
       io.write_bytes(len.to_i32, IO::ByteFormat::LittleEndian)
       @bytes = io.to_slice
