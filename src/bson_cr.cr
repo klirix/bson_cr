@@ -42,6 +42,20 @@ module BSONCr
     def initialize(@io : IO)
     end
 
+    def encode(value : NamedTuple(Any::Type), offset : UInt32 = 0)
+      io.write_bytes(0_i32, IO::ByteFormat::LittleEndian) # Placeholder for document size
+      value.each do |k, v|
+        write_value(k, v)
+      end
+      io.write_byte(0) # null terminator for document
+      # Now go back and write the document size
+      doc_size = (io.pos - offset).to_i32
+      current_pos = io.pos
+      io.pos = offset
+      io.write_bytes(doc_size, IO::ByteFormat::LittleEndian)
+      io.pos = current_pos
+    end
+
     def encode(value : Hash(String, Any::Type), offset : UInt32 = 0)
       io.write_bytes(0_i32, IO::ByteFormat::LittleEndian) # Placeholder for document size
       value.each do |k, v|
@@ -308,6 +322,7 @@ module BSONCr
       io.pos = 0
       io.write_bytes(len.to_i32, IO::ByteFormat::LittleEndian)
       @bytes = io.to_slice
+      self
     end
 
     def delete(key : String) : Any::Value?
